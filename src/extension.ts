@@ -39,9 +39,6 @@ export function activate(context: vscode.ExtensionContext) {
         async setTeamNumber(teamNumber: number): Promise<void> {
             await properties.setTeamNumber(teamNumber);
         },
-        async resolveRoboRioIp(teamNumber: number): Promise<string> {
-            return 'Hello';
-        },
         async startTool(): Promise<void> {
 
         },

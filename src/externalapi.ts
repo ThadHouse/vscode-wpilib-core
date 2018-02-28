@@ -7,7 +7,6 @@ export interface ExternalAPI {
   startRioLog(teamNumber: number) : Promise<void>;
   getTeamNumber(): Promise<number>;
   setTeamNumber(teamNumber: number): Promise<void>;
-  resolveRoboRioIp(teamNumber: number): Promise<string>;
   startTool(): Promise<void>;
   deployCode(teamNumber: number): Promise<boolean>;
   registerCodeDeploy(deployer: ICodeDeployer): void;
