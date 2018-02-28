@@ -37,7 +37,7 @@ export class Properties {
       return -1;
     }
     let teamNumber = await this.requestTeamNumber();
-    if (teamNumber !== -1) {
+    if (teamNumber !== -1 && teamRequest === 'Yes and Save') {
       await this.setTeamNumber(teamNumber);
     }
     return teamNumber;
@@ -49,7 +49,7 @@ export class Properties {
     }
 
     try {
-      let jsonString = await loadFileToString(this.settingFile.toString());
+      let jsonString = await loadFileToString(this.settingFile.fsPath);
       let parsed = jsonc.parse(jsonString);
 
       if ('teamNumber' in parsed) {
@@ -68,16 +68,16 @@ export class Properties {
     }
 
     try {
-      let jsonString = await loadFileToString(this.settingFile.toString());
+      let jsonString = await loadFileToString(this.settingFile.fsPath);
       let parsed = jsonc.parse(jsonString);
       parsed.teamNumber = teamNumber;
       let unparsed = JSON.stringify(parsed, null, 4);
-      await writeStringToFile(this.settingFile.toString(), unparsed);
+      await writeStringToFile(this.settingFile.fsPath, unparsed);
     } catch (error) {
       // On any error, write file
       let jsn = { teamNumber: teamNumber};
       let unparsed = JSON.stringify(jsn, null, 4);
-      await writeStringToFile(this.settingFile.toString(), unparsed);
+      await writeStringToFile(this.settingFile.fsPath, unparsed);
     }
   }
 

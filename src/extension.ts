@@ -1,8 +1,7 @@
 'use strict';
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
+
 import * as vscode from 'vscode';
-import { ExternalAPI, ICodeDeployer } from './externalapi';
+import { IExternalAPI, ICodeDeployer, IToolRunner } from './externalapi';
 import { RioLog } from './riolog';
 import { Properties} from './properties';
 import * as path from 'path';
@@ -11,25 +10,21 @@ import * as path from 'path';
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
+    console.log(context.extensionPath)
+
     let riolog = new RioLog();
     context.subscriptions.push(riolog);
 
     let properties = new Properties();
     context.subscriptions.push(properties);
 
-    let extension = vscode.extensions.getExtension('wpifirst.vscode-wpilib-core');
+    let extensionResourceLocation = path.join(context.extensionPath, 'resources');
 
-    if (extension === undefined) {
-        vscode.window.showErrorMessage('Unable to find extension');
-        return;
-    }
-
-    let extensionResourceLocation = path.join(extension.extensionPath, 'resources');
-
+    let tools = new Array<IToolRunner>();
     let codeDeployers = new Array<ICodeDeployer>();
     let codeDebuggers = new Array<ICodeDeployer>();
 
-    let api : ExternalAPI = {
+    let api : IExternalAPI = {
         async startRioLog(teamNumber: number) : Promise<void> {
             riolog.connect(teamNumber, path.join(extensionResourceLocation, 'riolog'));
         },
@@ -40,9 +35,37 @@ export function activate(context: vscode.ExtensionContext) {
             await properties.setTeamNumber(teamNumber);
         },
         async startTool(): Promise<void> {
+            if (tools.length <= 0) {
+                vscode.window.showErrorMessage('No tools found. Please install some');
+                return;
+            }
 
+            let toolNames = new Array<string>();
+            for (let t of tools) {
+                toolNames.push(t.getDisplayName());
+            }
+
+            let result = await vscode.window.showQuickPick(toolNames);
+
+            if (result === undefined) {
+                vscode.window.showInformationMessage('Tool run canceled');
+                return;
+            }
+
+            for (let t of tools) {
+                if (t.getDisplayName() === result) {
+                    await t.runTool();
+                    return;
+                }
+            }
+
+            vscode.window.showErrorMessage('Invalid tool entered');
+            return;
         },
-        async deployCode(teamNumber: number): Promise<boolean> {
+        addTool(tool: IToolRunner): void {
+            tools.push(tool);
+        },
+        async deployCode(): Promise<boolean> {
             if (codeDeployers.length <= 0) {
                 vscode.window.showErrorMessage('No registered deployers');
                 return false;
@@ -85,7 +108,7 @@ export function activate(context: vscode.ExtensionContext) {
         registerCodeDeploy(deployer: ICodeDeployer): void {
             codeDeployers.push(deployer);
         },
-        async debugCode(teamNumber: number): Promise<boolean> {
+        async debugCode(): Promise<boolean> {
             if (codeDebuggers.length <= 0) {
                 vscode.window.showErrorMessage('No registered debuggers');
                 return false;
@@ -150,11 +173,11 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('wpilibcore.deployCode', async () =>{
-        await api.deployCode(await api.getTeamNumber());
+        await api.deployCode();
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('wpilibcore.debugCode', async () =>{
-        await api.debugCode(await api.getTeamNumber());
+        await api.debugCode();
     }));
 
     return api;
