@@ -13,4 +13,5 @@ export interface ExternalAPI {
   registerCodeDeploy(callback: (teamNumber: number) => Promise<boolean>, name: string): void;
   debugCode(teamNumber: number): Promise<boolean>;
   registerCodeDebug(callback: (teamNumber: number) => Promise<boolean>, name: string): void;
+  getApiVersion(): number;
 }

@@ -70,6 +70,9 @@ export class Properties {
     try {
       let jsonString = await loadFileToString(this.settingFile.toString());
       let parsed = jsonc.parse(jsonString);
+      parsed.teamNumber = teamNumber;
+      let unparsed = JSON.stringify(parsed, null, 4);
+      await writeStringToFile(this.settingFile.toString(), unparsed);
     } catch (error) {
       // On any error, write file
       let jsn = { teamNumber: teamNumber};

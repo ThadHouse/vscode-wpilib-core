@@ -53,8 +53,11 @@ export function activate(context: vscode.ExtensionContext) {
         },
         registerCodeDebug(callback: (teamNumber: number) => Promise<boolean>, name: string): void {
 
+        },
+        getApiVersion(): number {
+            return 1;
         }
-    }
+    };
 
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
@@ -70,7 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage('Hello World!');
     });
 
-    context.subscriptions.push();
+    context.subscriptions.push(disposable);
 
     return api;
 }
