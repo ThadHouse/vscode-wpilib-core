@@ -10,8 +10,14 @@ export interface ExternalAPI {
   resolveRoboRioIp(teamNumber: number): Promise<string>;
   startTool(): Promise<void>;
   deployCode(teamNumber: number): Promise<boolean>;
-  registerCodeDeploy(callback: (teamNumber: number) => Promise<boolean>, name: string): void;
+  registerCodeDeploy(deployer: ICodeDeployer): void;
   debugCode(teamNumber: number): Promise<boolean>;
-  registerCodeDebug(callback: (teamNumber: number) => Promise<boolean>, name: string): void;
+  registerCodeDebug(deployer: ICodeDeployer): void;
   getApiVersion(): number;
+}
+
+export interface ICodeDeployer {
+  getIsCurrentlyValid(): Promise<boolean>;
+  runDeployer(teamNumber: number): Promise<boolean>;
+  getDisplayName(): string;
 }

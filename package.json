@@ -17,8 +17,29 @@
     "contributes": {
         "commands": [
             {
-                "command": "extension.sayHello",
-                "title": "Hello World"
+                "command": "wpilibcore.startRioLog",
+                "title": "Start RioLog",
+                "category": "wpilib"
+            },
+            {
+                "command": "wpilibcore.setTeamNumber",
+                "title": "Set Team Number",
+                "category": "wpilib"
+            },
+            {
+                "command": "wpilibcore.startTool",
+                "title": "Start Tool",
+                "category": "wpilib"
+            },
+            {
+                "command": "wpilibcore.deployCode",
+                "title": "Deploy Robot Code",
+                "category": "wpilib"
+            },
+            {
+                "command": "wpilibcore.debugCode",
+                "title": "Debug Robot Code",
+                "category": "wpilib"
             }
         ]
     },
