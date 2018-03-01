@@ -26,6 +26,22 @@ export function activate(context: vscode.ExtensionContext) {
         preferences.push(new Preferences(w));
     }
 
+    context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders((e) => {
+        // Nuke and restart
+        for (let p of preferences) {
+            p.dispose();
+        }
+        let wp = vscode.workspace.workspaceFolders;
+
+        if (wp === undefined) {
+            return;
+        }
+
+        for (let w of wp) {
+            preferences.push(new Preferences(w));
+        }
+    }));
+
     context.subscriptions.push(...preferences);
 
     let extensionResourceLocation = path.join(context.extensionPath, 'resources');
@@ -186,7 +202,7 @@ export function activate(context: vscode.ExtensionContext) {
         },
         getPreferences(workspace: vscode.WorkspaceFolder): IPreferences {
             for (let p of preferences) {
-                if (p.workspace.name === workspace.name) {
+                if (p.workspace.uri === workspace.uri) {
                     return p;
                 }
             }
