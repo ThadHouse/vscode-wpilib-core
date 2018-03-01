@@ -26,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
         preferences.push(new Preferences(w));
     }
 
-    context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders((e) => {
+    context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
         // Nuke and restart
         for (let p of preferences) {
             p.dispose();
