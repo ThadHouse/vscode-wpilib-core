@@ -41,7 +41,43 @@
                 "title": "Debug Robot Code",
                 "category": "wpilib"
             }
-        ]
+        ],
+        "keybindings":[
+            {
+                "command": "wpilibcore.deployCode",
+                "key": "shift+F5"
+            }
+        ],
+        "menus" : {
+            "editor/title": [
+                {
+                    "command": "wpilibcore.deployCode",
+                    "group": "wpilib"
+                },
+                {
+                    "command": "wpilibcore.debugCode",
+                    "group": "wpilib"
+                },
+                {
+                    "command": "wpilibcore.startTool",
+                    "group": "wpilib"
+                }
+            ],
+            "explorer/context": [
+                {
+                    "command": "wpilibcore.deployCode",
+                    "group": "wpilib"
+                },
+                {
+                    "command": "wpilibcore.debugCode",
+                    "group": "wpilib"
+                },
+                {
+                    "command": "wpilibcore.startTool",
+                    "group": "wpilib"
+                }
+            ]
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
