@@ -1,4 +1,5 @@
 'use strict';
+import * as vscode from 'vscode';
 
 // This file is designed to be copied into an
 // external project to support the extension API
@@ -10,16 +11,18 @@ export interface IExternalAPI {
   startRioLog(teamNumber: number) : Promise<void>;
   startTool(): Promise<void>;
   addTool(tool: IToolRunner): void;
-  deployCode(): Promise<boolean>;
+  deployCode(workspace: vscode.WorkspaceFolder): Promise<boolean>;
   registerCodeDeploy(deployer: ICodeDeployer): void;
-  debugCode(): Promise<boolean>;
+  debugCode(workspace: vscode.WorkspaceFolder): Promise<boolean>;
   registerCodeDebug(deployer: ICodeDeployer): void;
   getApiVersion(): number;
 
 
-  getPreferences(): IPreferences;
+  getPreferences(workspace: vscode.WorkspaceFolder): IPreferences;
   addLanguageChoice(language: string): void;
   requestLanguageChoice(): Promise<string>;
+
+  getFirstOrSelectedWorkspace(): Promise<vscode.WorkspaceFolder | undefined>;
 }
 
 export interface ILanguageSpecific {
@@ -28,12 +31,16 @@ export interface ILanguageSpecific {
 }
 
 export interface IPreferences {
-  getTeamNumber(): number;
+  getTeamNumber(): Promise<number>;
   setTeamNumber(teamNumber: number): void;
   getCurrentLanguage(): string;
   setCurrentLanguage(language: string): void;
-  getLanguageSpecific(language: string): any;
-  setLanguageSpecific(language:string, data: any): void;
+  getAutoStartRioLog(): boolean;
+  setAutoStartRioLog(autoStart: boolean): void;
+  getAutoSaveOnDeploy(): boolean;
+  setAutoSaveOnDeploy(autoSave: boolean): void;
+  getLanguageSpecific(language: string): ILanguageSpecific | undefined;
+  setLanguageSpecific(data: ILanguageSpecific): void;
 }
 
 export interface IToolRunner {
@@ -51,13 +58,13 @@ export interface ICodeDeployer {
    * Returns if this deployer is currently valid to be used
    * in the current workspace
    */
-  getIsCurrentlyValid(): Promise<boolean>;
+  getIsCurrentlyValid(workspace: vscode.WorkspaceFolder): Promise<boolean>;
   /**
    * Run the command with the specified team number
    *
    * @param teamNumber The team number to deploy to
    */
-  runDeployer(teamNumber: number): Promise<boolean>;
+  runDeployer(teamNumber: number, workspace: vscode.WorkspaceFolder): Promise<boolean>;
 
   /**
    * Get the display name to be used for selection

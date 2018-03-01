@@ -2,7 +2,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { loadFileToString, writeStringToFile } from './utilities';
 import * as jsonc from 'jsonc-parser';
 import { IPreferences, ILanguageSpecific } from './externalapi';
 
@@ -10,6 +9,7 @@ interface PreferencesJson {
   teamNumber: number;
   currentLanguage: string;
   autoStartRioLog: boolean;
+  autoSaveOnDeploy: boolean;
   languageSpecific : ILanguageSpecific[];
 }
 
@@ -17,7 +17,16 @@ const defaultPreferences: PreferencesJson = {
   teamNumber: -1,
   currentLanguage: 'none',
   autoStartRioLog: false,
+  autoSaveOnDeploy: true,
   languageSpecific: []
+};
+
+export async function requestTeamNumber(): Promise<number> {
+  let teamNumber = await vscode.window.showInputBox( { prompt: 'Enter your team number'});
+  if (teamNumber === undefined) {
+    return -1;
+  }
+  return parseInt(teamNumber);
 }
 
 export class Preferences implements IPreferences {
@@ -28,8 +37,10 @@ export class Preferences implements IPreferences {
   private configFileWatcher: vscode.FileSystemWatcher;
   private readonly preferencesGlob: string = '**/' + this.preferenceFileName;
   private disposables: vscode.Disposable[] = [];
+  public workspace: vscode.WorkspaceFolder;
 
   constructor(workspace: vscode.WorkspaceFolder) {
+    this.workspace = workspace;
     this.configFolder = path.join(workspace.uri.fsPath, '.wpilib');
 
     let configFilePath = path.join(this.configFolder, this.preferenceFileName);
@@ -76,17 +87,11 @@ export class Preferences implements IPreferences {
 
   private writePreferences() {
     if (this.preferencesFile === undefined) {
-      return;
+      let configFilePath = path.join(this.configFolder, this.preferenceFileName);
+      this.preferencesFile = vscode.Uri.file(configFilePath);
+      fs.mkdirSync(path.dirname(this.preferencesFile.fsPath));
     }
     fs.writeFileSync(this.preferencesFile.fsPath, JSON.stringify(this.preferencesJson, null, 4));
-  }
-
-  public async requestTeamNumber(): Promise<number> {
-    let teamNumber = await vscode.window.showInputBox( { prompt: 'Enter your team number'});
-    if (teamNumber === undefined) {
-      return -1;
-    }
-    return parseInt(teamNumber);
   }
 
   private async noTeamNumberLogic(): Promise<number> {
@@ -98,7 +103,7 @@ export class Preferences implements IPreferences {
     if (teamRequest === 'No') {
       return -1;
     }
-    let teamNumber = await this.requestTeamNumber();
+    let teamNumber = await requestTeamNumber();
     if (teamNumber !== -1 && teamRequest === 'Yes and Save') {
       await this.setTeamNumber(teamNumber);
     }
@@ -106,44 +111,70 @@ export class Preferences implements IPreferences {
   }
 
   public async getTeamNumber(): Promise<number> {
-    if (this.settingFile === undefined) {
+    if (this.preferencesJson.teamNumber === -1) {
       return await this.noTeamNumberLogic();
     }
 
-    try {
-      let jsonString = await loadFileToString(this.settingFile.fsPath);
-      let parsed = jsonc.parse(jsonString);
-
-      if ('teamNumber' in parsed) {
-        return parsed.teamNumber;
-      } else {
-        return await this.noTeamNumberLogic();
-      }
-    } catch (error) {
-      return await this.noTeamNumberLogic();
-    }
+    return this.preferencesJson.teamNumber;
   }
 
-  public async setTeamNumber(teamNumber: number): Promise<void> {
-    if (this.settingFile === undefined) {
-      return;
+  public setTeamNumber(teamNumber: number): void {
+    this.preferencesJson.teamNumber = teamNumber;
+    this.writePreferences();
+  }
+
+  public getCurrentLanguage(): string {
+    return this.preferencesJson.currentLanguage;
+  }
+
+  public setCurrentLanguage(language: string): void {
+    this.preferencesJson.currentLanguage = language;
+    this.writePreferences();
+  }
+
+  public getAutoStartRioLog(): boolean {
+    return this.preferencesJson.autoStartRioLog;
+  }
+
+  public setAutoStartRioLog(autoStart: boolean): void {
+    this.preferencesJson.autoStartRioLog = autoStart;
+    this.writePreferences();
+  }
+
+  public getLanguageSpecific(language: string): ILanguageSpecific | undefined {
+    for (let l of this.preferencesJson.languageSpecific) {
+      if (l.languageName === language) {
+        return l;
+      }
     }
 
-    try {
-      let jsonString = await loadFileToString(this.settingFile.fsPath);
-      let parsed = jsonc.parse(jsonString);
-      parsed.teamNumber = teamNumber;
-      let unparsed = JSON.stringify(parsed, null, 4);
-      await writeStringToFile(this.settingFile.fsPath, unparsed);
-    } catch (error) {
-      // On any error, write file
-      let jsn = { teamNumber: teamNumber};
-      let unparsed = JSON.stringify(jsn, null, 4);
-      await writeStringToFile(this.settingFile.fsPath, unparsed);
+    return undefined;
+  }
+
+  public setLanguageSpecific(data: ILanguageSpecific): void {
+    for (let l of this.preferencesJson.languageSpecific) {
+      if (l.languageName === data.languageName) {
+        l.languageData = data.languageData;
+        this.writePreferences();
+        return;
+      }
     }
+    this.preferencesJson.languageSpecific.push(data);
+    this.writePreferences();
+  }
+
+  public getAutoSaveOnDeploy(): boolean {
+    return this.preferencesJson.autoSaveOnDeploy;
+  }
+
+  public setAutoSaveOnDeploy(autoSave: boolean): void {
+    this.preferencesJson.autoSaveOnDeploy = autoSave;
+    this.writePreferences();
   }
 
   dispose() {
-
+    for (let d of this.disposables) {
+      d.dispose();
+    }
   }
 }

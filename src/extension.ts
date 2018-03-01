@@ -1,9 +1,9 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { IExternalAPI, ICodeDeployer, IToolRunner } from './externalapi';
+import { IExternalAPI, ICodeDeployer, IToolRunner, IPreferences } from './externalapi';
 import { RioLog } from './riolog';
-import { Preferences } from './preferences';
+import { Preferences, requestTeamNumber } from './preferences';
 import * as path from 'path';
 
 // this method is called when your extension is activated
@@ -13,24 +13,31 @@ export function activate(context: vscode.ExtensionContext) {
     let riolog = new RioLog();
     context.subscriptions.push(riolog);
 
-    let preferences = new Preferences();
-    context.subscriptions.push(preferences);
+    let preferences: Preferences[] = [];
+
+    let workspaces = vscode.workspace.workspaceFolders;
+
+    if (workspaces === undefined) {
+        vscode.window.showErrorMessage('WPILib does not support single file');
+        return;
+    }
+
+    for (let w of workspaces) {
+        preferences.push(new Preferences(w));
+    }
+
+    context.subscriptions.push(...preferences);
 
     let extensionResourceLocation = path.join(context.extensionPath, 'resources');
 
     let tools = new Array<IToolRunner>();
     let codeDeployers = new Array<ICodeDeployer>();
     let codeDebuggers = new Array<ICodeDeployer>();
+    let languageChoices = new Array<string>();
 
     let api : IExternalAPI = {
         async startRioLog(teamNumber: number) : Promise<void> {
             riolog.connect(teamNumber, path.join(extensionResourceLocation, 'riolog'));
-        },
-        async getTeamNumber(): Promise<number> {
-            return await properties.getTeamNumber();
-        },
-        async setTeamNumber(teamNumber: number): Promise<void> {
-            await properties.setTeamNumber(teamNumber);
         },
         async startTool(): Promise<void> {
             if (tools.length <= 0) {
@@ -43,7 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
                 toolNames.push(t.getDisplayName());
             }
 
-            let result = await vscode.window.showQuickPick(toolNames);
+            let result = await vscode.window.showQuickPick(toolNames, { placeHolder: 'Pick a tool'});
 
             if (result === undefined) {
                 vscode.window.showInformationMessage('Tool run canceled');
@@ -63,15 +70,17 @@ export function activate(context: vscode.ExtensionContext) {
         addTool(tool: IToolRunner): void {
             tools.push(tool);
         },
-        async deployCode(): Promise<boolean> {
+        async deployCode(workspace: vscode.WorkspaceFolder): Promise<boolean> {
             if (codeDeployers.length <= 0) {
                 vscode.window.showErrorMessage('No registered deployers');
                 return false;
             }
 
+            let prefs = await this.getPreferences(workspace);
+
             let availableDeployers = new Array<ICodeDeployer>();
             for (let d of codeDeployers) {
-                if (await d.getIsCurrentlyValid()) {
+                if (await d.getIsCurrentlyValid(workspace)) {
                     availableDeployers.push(d);
                 }
             }
@@ -80,13 +89,21 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage('No registered deployers');
                 return false;
             } else if (availableDeployers.length === 1) {
-                await availableDeployers[0].runDeployer(await this.getTeamNumber());
+                if (prefs.getAutoSaveOnDeploy()) {
+                    vscode.workspace.saveAll();
+                }
+                let teamNumber = await prefs.getTeamNumber();
+                let ret = await availableDeployers[0].runDeployer(teamNumber, workspace);
+                if (prefs.getAutoStartRioLog() && ret) {
+                    await this.startRioLog(teamNumber);
+                }
+                return ret;
             } else {
                 let names = new Array<string>();
                 for (let d of availableDeployers) {
                     names.push(d.getDisplayName());
                 }
-                let result = await vscode.window.showQuickPick(names);
+                let result = await vscode.window.showQuickPick(names, {placeHolder: 'Pick a deploy language'});
                 if (result === undefined) {
                     await vscode.window.showInformationMessage('Deploy exited');
                     return false;
@@ -94,19 +111,26 @@ export function activate(context: vscode.ExtensionContext) {
 
                 for (let d of availableDeployers) {
                     if (d.getDisplayName() === result) {
-                        return await d.runDeployer(await this.getTeamNumber());
+                        if (prefs.getAutoSaveOnDeploy()) {
+                            vscode.workspace.saveAll();
+                        }
+                        let teamNumber = await prefs.getTeamNumber();
+                        let ret = await d.runDeployer(teamNumber, workspace);
+                        if (prefs.getAutoStartRioLog() && ret) {
+                            await this.startRioLog(teamNumber);
+                        }
+                        return ret;
                     }
                 }
 
                 await vscode.window.showInformationMessage('Deploy exited');
                 return false;
             }
-            return false;
         },
         registerCodeDeploy(deployer: ICodeDeployer): void {
             codeDeployers.push(deployer);
         },
-        async debugCode(): Promise<boolean> {
+        async debugCode(workspace: vscode.WorkspaceFolder): Promise<boolean> {
             if (codeDebuggers.length <= 0) {
                 vscode.window.showErrorMessage('No registered debuggers');
                 return false;
@@ -114,7 +138,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             let availableDebuggers = new Array<ICodeDeployer>();
             for (let d of codeDebuggers) {
-                if (await d.getIsCurrentlyValid()) {
+                if (await d.getIsCurrentlyValid(workspace)) {
                     availableDebuggers.push(d);
                 }
             }
@@ -123,13 +147,17 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage('No registered debuggers');
                 return false;
             } else if (availableDebuggers.length === 1) {
-                await availableDebuggers[0].runDeployer(await this.getTeamNumber());
+                let prefs = this.getPreferences(workspace);
+                if (prefs.getAutoSaveOnDeploy()) {
+                    vscode.workspace.saveAll();
+                }
+                await availableDebuggers[0].runDeployer(await prefs.getTeamNumber(), workspace);
             } else {
                 let names = new Array<string>();
                 for (let d of availableDebuggers) {
                     names.push(d.getDisplayName());
                 }
-                let result = await vscode.window.showQuickPick(names);
+                let result = await vscode.window.showQuickPick(names, { placeHolder: 'Pick a debug language'});
                 if (result === undefined) {
                     await vscode.window.showInformationMessage('Debug exited');
                     return false;
@@ -137,7 +165,11 @@ export function activate(context: vscode.ExtensionContext) {
 
                 for (let d of availableDebuggers) {
                     if (d.getDisplayName() === result) {
-                        return await d.runDeployer(await this.getTeamNumber());
+                        let prefs = this.getPreferences(workspace);
+                        if (prefs.getAutoSaveOnDeploy()) {
+                            vscode.workspace.saveAll();
+                        }
+                        return await d.runDeployer(await prefs.getTeamNumber(), workspace);
                     }
                 }
 
@@ -151,6 +183,41 @@ export function activate(context: vscode.ExtensionContext) {
         },
         getApiVersion(): number {
             return 1;
+        },
+        getPreferences(workspace: vscode.WorkspaceFolder): IPreferences {
+            for (let p of preferences) {
+                if (p.workspace.name === workspace.name) {
+                    return p;
+                }
+            }
+            return preferences[0];
+        },
+        addLanguageChoice(language: string): void {
+            languageChoices.push(language);
+        },
+        async requestLanguageChoice(): Promise<string> {
+            if (languageChoices.length <= 0) {
+                return '';
+            }
+            let result = await vscode.window.showQuickPick(languageChoices, { placeHolder: 'Pick a language' } );
+            if (result === undefined) {
+                return '';
+            }
+            return result;
+        },
+        async getFirstOrSelectedWorkspace(): Promise<vscode.WorkspaceFolder | undefined> {
+            let wp = vscode.workspace.workspaceFolders;
+            if (wp === undefined) {
+                return;
+            }
+            let workspace = wp[0];
+            if (wp.length > 1) {
+                let res = await vscode.window.showWorkspaceFolderPick();
+                if (res !== undefined) {
+                    workspace = res;
+                }
+            }
+            return workspace;
         }
     };
 
@@ -159,11 +226,19 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, your extension "vscode-wpilib-core" is now active!');
 
     context.subscriptions.push(vscode.commands.registerCommand('wpilibcore.startRioLog', async () =>{
-        await api.startRioLog(await api.getTeamNumber());
+        let workspace = await api.getFirstOrSelectedWorkspace();
+        if (workspace === undefined) {
+            return;
+        }
+        await api.startRioLog(await api.getPreferences(workspace).getTeamNumber());
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('wpilibcore.setTeamNumbers', async () =>{
-        await api.setTeamNumber(await properties.requestTeamNumber());
+    context.subscriptions.push(vscode.commands.registerCommand('wpilibcore.setTeamNumber', async () =>{
+        let workspace = await api.getFirstOrSelectedWorkspace();
+        if (workspace === undefined) {
+            return;
+        }
+        await api.getPreferences(workspace).setTeamNumber(await requestTeamNumber());
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('wpilibcore.startTool', async () =>{
@@ -171,11 +246,19 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('wpilibcore.deployCode', async () =>{
-        await api.deployCode();
+        let workspace = await api.getFirstOrSelectedWorkspace();
+        if (workspace === undefined) {
+            return;
+        }
+        await api.deployCode(workspace);
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('wpilibcore.debugCode', async () =>{
-        await api.debugCode();
+        let workspace = await api.getFirstOrSelectedWorkspace();
+        if (workspace === undefined) {
+            return;
+        }
+        await api.debugCode(workspace);
     }));
 
     return api;
