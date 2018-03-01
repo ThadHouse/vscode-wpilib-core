@@ -3,7 +3,7 @@
 import * as vscode from 'vscode';
 import { IExternalAPI, ICodeDeployer, IToolRunner } from './externalapi';
 import { RioLog } from './riolog';
-import { Properties} from './properties';
+import { Preferences } from './preferences';
 import * as path from 'path';
 
 // this method is called when your extension is activated
@@ -13,8 +13,8 @@ export function activate(context: vscode.ExtensionContext) {
     let riolog = new RioLog();
     context.subscriptions.push(riolog);
 
-    let properties = new Properties();
-    context.subscriptions.push(properties);
+    let preferences = new Preferences();
+    context.subscriptions.push(preferences);
 
     let extensionResourceLocation = path.join(context.extensionPath, 'resources');
 

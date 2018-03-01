@@ -8,8 +8,6 @@
  */
 export interface IExternalAPI {
   startRioLog(teamNumber: number) : Promise<void>;
-  getTeamNumber(): Promise<number>;
-  setTeamNumber(teamNumber: number): Promise<void>;
   startTool(): Promise<void>;
   addTool(tool: IToolRunner): void;
   deployCode(): Promise<boolean>;
@@ -17,6 +15,25 @@ export interface IExternalAPI {
   debugCode(): Promise<boolean>;
   registerCodeDebug(deployer: ICodeDeployer): void;
   getApiVersion(): number;
+
+
+  getPreferences(): IPreferences;
+  addLanguageChoice(language: string): void;
+  requestLanguageChoice(): Promise<string>;
+}
+
+export interface ILanguageSpecific {
+  languageName: string;
+  languageData: any;
+}
+
+export interface IPreferences {
+  getTeamNumber(): number;
+  setTeamNumber(teamNumber: number): void;
+  getCurrentLanguage(): string;
+  setCurrentLanguage(language: string): void;
+  getLanguageSpecific(language: string): any;
+  setLanguageSpecific(language:string, data: any): void;
 }
 
 export interface IToolRunner {
