@@ -10,8 +10,6 @@ import * as path from 'path';
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
-    console.log(context.extensionPath)
-
     let riolog = new RioLog();
     context.subscriptions.push(riolog);
 
